@@ -4,9 +4,14 @@ const mongoose = require("mongoose");
 const { ObjectId } = require("mongoose").Types;
 const cors = require("cors");
 const app = express();
+const { createServer } = require("node:http");
+const { Server } = require("socket.io");
+const server = createServer(app);
 
 const port = process.env.PORT || 5000;
-
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] },
+});
 // middleware
 app.use(cors());
 app.use(express.json());
@@ -14,12 +19,23 @@ app.use(express.json());
 // MongoDB connection
 async function main() {
   try {
-    await mongoose.connect(process.env.DB_URI);
+    await mongoose.connect(process.env.DB_URI, {
+      serverSelectionTimeoutMS: 50000, // 50 seconds timeout
+    });
   } catch (error) {
     console.log("MongDB connection error:", error);
   }
 }
 main();
+
+// connect socket
+io.on("connection", (socket) => {
+  console.log("a user connected");
+
+  socket.on("disconnect", () => {
+    console.log("User disconnect");
+  });
+});
 
 // user schema
 const { Schema } = mongoose;
@@ -81,10 +97,9 @@ app.post("/users", async (req, res) => {
 });
 
 // tasks related apis
-app.get("/tasks/:email", async (req, res) => {
+app.get("/tasks", async (req, res) => {
   try {
-    const email = req.params.email;
-    const result = await Tasks.find({ email });
+    const result = await Tasks.find({});
     res.status(200).json({
       success: true,
       data: result,
@@ -120,7 +135,7 @@ app.post("/tasks", async (req, res) => {
 });
 
 // update tasks
-app.put("/tasks/:id", async (req, res) => {
+app.patch("/tasks/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const task = req.body;
@@ -161,6 +176,6 @@ app.get("/", (req, res) => {
   res.send("Track-task on coming soon....");
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server running on port: ${port}`);
 });
