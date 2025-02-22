@@ -6,7 +6,8 @@ const cors = require("cors");
 const app = express();
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
-const { title } = require("node:process");
+const { type } = require("node:os");
+const { timeStamp } = require("node:console");
 const server = createServer(app, { connectionStateRecovery: {} });
 
 const port = process.env.PORT || 5000;
@@ -28,73 +29,6 @@ async function main() {
   }
 }
 main();
-
-// connect socket
-io.on("connection", (socket) => {
-  console.log("a user connected");
-
-  socket.on("tasks", async (tasks) => {
-    const { toDo, InProgress, done } = tasks;
-
-    // update category
-    const updateToDo =
-      toDo.length !== 0
-        ? toDo.map((toDoTask) => ({ ...toDoTask, category: "to-do" }))
-        : "";
-    const updateInProgress =
-      InProgress.length !== 0
-        ? InProgress.map((InProgressTask) => ({
-            ...InProgressTask,
-            category: "in-progress",
-          }))
-        : "";
-    const updateDone =
-      done.length !== 0
-        ? done.map((DoneTask) => ({ ...DoneTask, category: "done" }))
-        : "";
-    // console.log(
-    //   "todo:",
-    //   toDo.length,
-    //   "inProgress:",
-    //   // updateInProgressCategory?.map((task) => task.category),
-    //   "done:",
-    //   done.length
-    // );
-
-    const mergedObject = [...updateToDo, ...updateInProgress, ...updateDone];
-
-    // update DB Collection
-    if (mergedObject.length > 0) {
-      const result = await Promise.all(
-        mergedObject.map(
-          async (task) =>
-            await Tasks.updateOne(
-              { _id: new ObjectId(task._id) },
-              { $set: { category: task.category } }
-            )
-        )
-      );
-
-      // check task modified for  notifications
-      const ids = mergedObject.map((task, index) =>
-        result[index].modifiedCount > 0
-          ? {
-              title: task.title,
-              category: task.category,
-              timeStamp: new Date().toISOString(),
-            }
-          : ""
-      );
-
-      console.log(ids);
-    }
-  });
-
-  // user disconnect
-  socket.on("disconnect", () => {
-    console.log("User disconnect");
-  });
-});
 
 // user schema
 const { Schema } = mongoose;
@@ -118,9 +52,91 @@ const taskSchema = new Schema({
   email: { required: true, type: String },
 });
 
+// notification schema
+const notificationsSchema = new Schema({
+  category: { type: String },
+  email: { type: String },
+  status: { type: String },
+  timeStamp: { type: String },
+  title: { type: String },
+});
+
 // Model
 const Users = mongoose.model("Users", userSchema);
 const Tasks = mongoose.model("Tasks", taskSchema);
+const Notifications = mongoose.model("Notifications", notificationsSchema);
+
+// connect socket
+io.on("connection", (socket) => {
+  console.log("a user connected");
+
+  socket.on("tasks", async (tasks) => {
+    try {
+      const { toDo, InProgress, done } = tasks;
+
+      // update category
+      const updateToDo =
+        toDo.length !== 0
+          ? toDo.map((toDoTask) => ({ ...toDoTask, category: "to-do" }))
+          : [];
+      const updateInProgress =
+        InProgress.length !== 0
+          ? InProgress.map((InProgressTask) => ({
+              ...InProgressTask,
+              category: "in-progress",
+            }))
+          : [];
+      const updateDone =
+        done.length !== 0
+          ? done.map((DoneTask) => ({ ...DoneTask, category: "done" }))
+          : [];
+
+      const mergedObject = [...updateToDo, ...updateInProgress, ...updateDone];
+
+      // update DB Collection
+      if (mergedObject.length > 0) {
+        const result = await Promise.all(
+          mergedObject.map((task) =>
+            Tasks.updateOne(
+              { _id: new ObjectId(task._id) },
+              { $set: { category: task.category } }
+            )
+          )
+        );
+
+        // check task modified for  notifications
+        const updatedTask = mergedObject.map((task, index) =>
+          result[index].modifiedCount > 0
+            ? {
+                title: task.title,
+                category: task.category,
+                timeStamp: new Date().toISOString(),
+                status: "unseen",
+                email: task.email,
+              }
+            : null
+        );
+
+        // send notifications client site
+        const notification = updatedTask.filter((task) => task !== null);
+        if (notification.length > 0) {
+          socket.emit("notification", notification[0]);
+
+          // insert notification to server
+          const result = await Notifications.insertOne(notification[0]);
+          console.log(result);
+        }
+      }
+    } catch (error) {
+      console.log("Socket operation ERROR:", error.message);
+    }
+  });
+
+  // user disconnect
+  socket.on("disconnect", () => {
+    console.log("User disconnect");
+  });
+});
 
 //   user related api
 app.post("/users", async (req, res) => {
