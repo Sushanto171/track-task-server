@@ -6,7 +6,7 @@ const cors = require("cors");
 const app = express();
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
-const server = createServer(app);
+const server = createServer(app, { connectionStateRecovery: {} });
 
 const port = process.env.PORT || 5000;
 const io = new Server(server, {
@@ -32,6 +32,55 @@ main();
 io.on("connection", (socket) => {
   console.log("a user connected");
 
+  socket.on("tasks", async (tasks) => {
+    const { toDo, InProgress, done } = tasks;
+
+    // update category
+    const updateToDo =
+      toDo.length !== 0
+        ? toDo.map((toDoTask) => ({ ...toDoTask, category: "to-do" }))
+        : "";
+    const updateInProgress =
+      InProgress.length !== 0
+        ? InProgress.map((InProgressTask) => ({
+            ...InProgressTask,
+            category: "in-progress",
+          }))
+        : "";
+    const updateDone =
+      done.length !== 0
+        ? done.map((DoneTask) => ({ ...DoneTask, category: "done" }))
+        : "";
+    // console.log(
+    //   "todo:",
+    //   toDo.length,
+    //   "inProgress:",
+    //   // updateInProgressCategory?.map((task) => task.category),
+    //   "done:",
+    //   done.length
+    // );
+
+    const mergedObject = [...updateToDo, ...updateInProgress, ...updateDone];
+
+    // update DB Collection
+    if (mergedObject.length > 0) {
+      const result = await Promise.all(
+        mergedObject.map(
+          async (task) =>
+            await Tasks.updateOne(
+              { _id: new ObjectId(task._id) },
+              { $set: { category: task.category } }
+            )
+        )
+      );
+
+      console.log(result);
+    }
+
+    console.log(mergedObject);
+  });
+
+  // user disconnect
   socket.on("disconnect", () => {
     console.log("User disconnect");
   });
