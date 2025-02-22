@@ -14,20 +14,21 @@ const port = process.env.PORT || 5000;
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] },
 });
-// middleware
-cors({
-  origin: "*",
-  methods: "GET, POST, PUT, DELETE",
+// CORS Configuration
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "https://track-my-tasks.firebaseapp.com",
+    "https://track-my-tasks.web.app/",
+  ],
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   credentials: true,
-});
+};
 
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-});
+// Apply CORS Middleware
+app.use(cors(corsOptions));
 
+// Middleware
 app.use(express.json());
 
 // MongoDB connection
