@@ -15,7 +15,15 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] },
 });
 // middleware
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://track-my-tasks.web.app",
+      "https://track-my-tasks.firebaseapp.com",
+    ],
+  })
+);
 app.use(express.json());
 
 // MongoDB connection
