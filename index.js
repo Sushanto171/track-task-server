@@ -6,6 +6,7 @@ const cors = require("cors");
 const app = express();
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
+const { title } = require("node:process");
 const server = createServer(app, { connectionStateRecovery: {} });
 
 const port = process.env.PORT || 5000;
@@ -74,10 +75,19 @@ io.on("connection", (socket) => {
         )
       );
 
-      console.log(result);
-    }
+      // check task modified for  notifications
+      const ids = mergedObject.map((task, index) =>
+        result[index].modifiedCount > 0
+          ? {
+              title: task.title,
+              category: task.category,
+              timeStamp: new Date().toISOString(),
+            }
+          : ""
+      );
 
-    console.log(mergedObject);
+      console.log(ids);
+    }
   });
 
   // user disconnect
