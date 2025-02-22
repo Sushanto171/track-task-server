@@ -19,7 +19,7 @@ const corsOptions = {
   origin: [
     "http://localhost:5173",
     "https://track-my-tasks.firebaseapp.com",
-    "https://track-my-tasks.web.app/",
+    "https://track-my-tasks.web.app",
   ],
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   credentials: true,
