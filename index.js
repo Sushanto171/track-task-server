@@ -15,24 +15,12 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] },
 });
 // middleware
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://track-my-tasks.web.app",
-  "https://track-my-tasks.firebaseapp.com",
-];
+cors({
+  origin: "*",
+  methods: "GET, POST, PUT, DELETE",
+  credentials: true,
+});
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // যদি কুকিজ বা অথরাইজেশন টোকেন পাঠাতে হয়
-  })
-);
 app.use(express.json());
 
 // MongoDB connection
